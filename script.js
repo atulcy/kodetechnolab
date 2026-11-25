@@ -132,7 +132,7 @@
     if (!ok) { note.textContent = 'Please fill in all fields with valid details.'; return; }
     const d = Object.fromEntries(new FormData(form));
     // Opens the visitor's mail client. Replace with fetch() to Formspree/your API for real delivery.
-    location.href = `mailto:info@kodetechnolab.com?subject=${encodeURIComponent('Inquiry: ' + d.service)}&body=${encodeURIComponent(`Name: ${d.name}\nEmail: ${d.email}\n\n${d.message}`)}`;
+    location.href = `mailto:kodetechnolab@gmail.com?subject=${encodeURIComponent('Inquiry: ' + d.service)}&body=${encodeURIComponent(`Name: ${d.name}\nEmail: ${d.email}\n\n${d.message}`)}`;
     note.textContent = "Thanks! We'll get back to you within one business day.";
     form.reset();
   });
