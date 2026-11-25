@@ -119,21 +119,87 @@
     }
   })();
 
-  // contact form (front-end only)
-  const form = $('#form'), note = $('#note');
-  form.addEventListener('submit', e => {
+  // ---------------------------------------------------------------
+  // Contact form — sends the message directly. No mail client opens.
+  //
+  // This site is served by GitHub Pages, which hosts static files only,
+  // so there is no server of ours to post to. Delivery goes through
+  // Web3Forms: the browser POSTs the fields to their API and they email
+  // INBOX below.
+  //
+  // SETUP (one minute, required — the form will not send until it is done):
+  //   1. Go to https://web3forms.com and enter kodetechnolab@gmail.com
+  //   2. Confirm the email they send to that inbox
+  //   3. Paste the access key they give you into ACCESS_KEY below
+  //
+  // The access key is safe to commit to a public repo: it only ever
+  // routes mail to that one verified address, and it can be locked to
+  // this domain from the Web3Forms dashboard. It is not a secret and
+  // cannot be used to read anything.
+  //
+  // To use Formspree instead: set ENDPOINT to your form URL
+  // (https://formspree.io/f/xxxxxxx) and ACCESS_KEY to '' — the payload
+  // below works with either service.
+  // ---------------------------------------------------------------
+  const ENDPOINT = 'https://api.web3forms.com/submit';
+  const ACCESS_KEY = '52e8d997-b707-4447-b864-2b28913a14d2';
+  const INBOX = 'kodetechnolab@gmail.com';
+
+  const form = $('#form'), note = $('#note'), submitBtn = $('#submitBtn');
+  const setNote = (kind, text) => { note.className = 'note' + (kind ? ' ' + kind : ''); note.textContent = text; };
+
+  form.addEventListener('submit', async e => {
     e.preventDefault();
+
     let ok = true;
-    $$('input,textarea', form).forEach(f => {
+    $$('input[required],textarea[required]', form).forEach(f => {
       const bad = !f.checkValidity() || !f.value.trim();
       f.classList.toggle('bad', bad); if (bad) ok = false;
     });
-    note.className = 'note ' + (ok ? 'ok' : 'err');
-    if (!ok) { note.textContent = 'Please fill in all fields with valid details.'; return; }
+    if (!ok) { setNote('err', 'Please fill in all fields with valid details.'); return; }
+
+    if (ACCESS_KEY.startsWith('PASTE-')) {
+      console.error('[contact form] No access key set in script.js — nothing was sent. See the SETUP comment.');
+      setNote('err', `The form isn't connected yet. Please email ${INBOX} directly.`);
+      return;
+    }
+
     const d = Object.fromEntries(new FormData(form));
-    // Opens the visitor's mail client. Replace with fetch() to Formspree/your API for real delivery.
-    location.href = `mailto:kodetechnolab@gmail.com?subject=${encodeURIComponent('Inquiry: ' + d.service)}&body=${encodeURIComponent(`Name: ${d.name}\nEmail: ${d.email}\n\n${d.message}`)}`;
-    note.textContent = "Thanks! We'll get back to you within one business day.";
-    form.reset();
+    const payload = {
+      access_key: ACCESS_KEY,
+      subject: `Website enquiry: ${d.service}`,
+      from_name: 'kodetechnolab.com contact form',
+      replyto: d.email,          // replying to the notification answers the visitor
+      name: d.name,
+      email: d.email,
+      service: d.service,
+      message: d.message,
+      botcheck: Boolean(d.botcheck)
+    };
+
+    const label = submitBtn.textContent;
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Sending…';
+    setNote('', 'Sending your message…');
+
+    try {
+      const res = await fetch(ENDPOINT, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const out = await res.json().catch(() => ({}));
+
+      if (!res.ok || out.success === false) throw new Error(out.message || `HTTP ${res.status}`);
+
+      form.reset();
+      setNote('ok', "Thanks! Your message is on its way — we'll reply within one business day.");
+    } catch (err) {
+      console.error('[contact form]', err);
+      setNote('err', `That didn't send. Please try again, or email ${INBOX}.`);
+    } finally {
+      submitBtn.disabled = false;
+      submitBtn.textContent = label;
+    }
   });
 })();
